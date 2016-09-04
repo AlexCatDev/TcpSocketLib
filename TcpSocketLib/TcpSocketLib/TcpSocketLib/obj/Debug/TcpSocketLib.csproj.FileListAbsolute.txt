@@ -1,0 +1,5 @@
+c:\users\alex\documents\visual studio 2015\Projects\TcpSocketLib\TcpSocketLib\bin\Debug\TcpSocketLib.dll
+c:\users\alex\documents\visual studio 2015\Projects\TcpSocketLib\TcpSocketLib\bin\Debug\TcpSocketLib.pdb
+c:\users\alex\documents\visual studio 2015\Projects\TcpSocketLib\TcpSocketLib\obj\Debug\TcpSocketLib.csprojResolveAssemblyReference.cache
+c:\users\alex\documents\visual studio 2015\Projects\TcpSocketLib\TcpSocketLib\obj\Debug\TcpSocketLib.dll
+c:\users\alex\documents\visual studio 2015\Projects\TcpSocketLib\TcpSocketLib\obj\Debug\TcpSocketLib.pdb
