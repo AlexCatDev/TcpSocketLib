@@ -1,0 +1,7 @@
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Client Example\bin\Debug\Chat Client Example.exe.config
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Client Example\bin\Debug\Chat Client Example.exe
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Client Example\bin\Debug\Chat Client Example.pdb
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Client Example\bin\Debug\TcpSocketLib.dll
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Client Example\bin\Debug\TcpSocketLib.pdb
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Client Example\obj\Debug\Chat Client Example.exe
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Client Example\obj\Debug\Chat Client Example.pdb

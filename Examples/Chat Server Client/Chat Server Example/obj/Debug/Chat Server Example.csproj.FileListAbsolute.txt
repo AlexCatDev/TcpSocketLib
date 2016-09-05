@@ -1,0 +1,8 @@
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Server Example\bin\Debug\Chat Server Example.exe.config
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Server Example\obj\Debug\Chat Server Example.csprojResolveAssemblyReference.cache
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Server Example\bin\Debug\Chat Server Example.exe
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Server Example\bin\Debug\Chat Server Example.pdb
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Server Example\bin\Debug\TcpSocketLib.dll
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Server Example\bin\Debug\TcpSocketLib.pdb
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Server Example\obj\Debug\Chat Server Example.exe
+c:\users\undløse\documents\visual studio 2015\Projects\Chat Server Example\Chat Server Example\obj\Debug\Chat Server Example.pdb
