@@ -5,28 +5,16 @@ namespace TcpSocketLib
 {
     public class TcpSocketClient
     {
-
-        public class PacketReceivedArgs : EventArgs
-        {
-            public byte[] Data { get; set; }
-            public int Length { get; set; }
-
-            public PacketReceivedArgs(byte[] data) {
-                Data = data;
-                Length = data.Length;
-            }
-        }
         public delegate void PacketReceivedHandler(PacketReceivedArgs PacketReceivedArgs);
         public event PacketReceivedHandler PacketRecieved;
 
         object sendLock = new object();
+        byte[] buffer;
 
         Socket socket;
 
         public string IP { get; private set; }
         public int Port { get; private set; }
-
-        byte[] buffer;
 
         public TcpSocketClient() {
             this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -43,25 +31,23 @@ namespace TcpSocketLib
 
         private void Read() {
             buffer = new byte[4];
-            this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, RecieveCallBack, null);
+            this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, ReceiveCallBack, null);
         }
 
-        private void RecieveCallBack(IAsyncResult iar) {
+        private void ReceiveCallBack(IAsyncResult iar) {
             try {
                 if (this.socket.EndReceive(iar) > 1) {
                     buffer = new byte[BitConverter.ToInt32(buffer, 0)];
-                    this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, FinalCallBack, null);
+                    this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, FinalReceiveCallBack, null);
                 } else {
-                    //Idk tbh :\
-
-                    //kys
+                    HandleDisconnect(new Exception("Invalid packet received."));
                 }
             }catch(Exception ex) {
                 HandleDisconnect(ex);
             }
         }
 
-        private void FinalCallBack(IAsyncResult iar) {
+        private void FinalReceiveCallBack(IAsyncResult iar) {
             try {
                 this.socket.EndReceive(iar);
                 PacketRecieved?.Invoke(new PacketReceivedArgs(buffer));
