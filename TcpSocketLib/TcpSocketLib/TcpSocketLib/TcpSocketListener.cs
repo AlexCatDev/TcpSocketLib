@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
@@ -73,12 +73,16 @@ namespace TcpSocketLib
 
         Socket listener;
 
+        public TcpSocket[] GetConnectedClients() {
+            return ConnectedClients.ToArray();
+        }
+
         public TcpSocketListener(int Port) {
             this.Port = Port;
             this.Running = false;
         }
 
-        public void Start(int MaxConnectionQueue) {
+        public void Start(int MaxConnectionQueue = 25) {
             if (Running) {
                 throw new InvalidOperationException("Listener is already running.");
             } else {
@@ -122,39 +126,44 @@ namespace TcpSocketLib
         {
 
             public object UserState { get; set; }
+            public bool Running { get; private set; }
+            public int MaxPacketSize { get; set; }
 
             public EndPoint RemoteEndPoint { get; private set; }
+            public FloodProtector FloodProtector { get; set; }
 
             Socket socket;
             TcpSocketListener tsl;
 
-            byte[] buffer;
-
-            object sendLock = new object();
-
-            public int MaxMessageSize { get; set; }
-
-            public FloodProtector FloodProtector { get; set; }
-
             Stopwatch stopWatch;
 
-            bool running = false;
+            byte[] buffer;
+            object sendLock = new object();
+
+            long now = 0;
+            long last = 0;
+            long time = 0;
+            int packetRate = 0;
 
             public TcpSocket(Socket socket, TcpSocketListener tsl) {
                 this.socket = socket;
                 this.tsl = tsl;
-                this.MaxMessageSize = int.MaxValue;
+                this.MaxPacketSize = int.MaxValue;
                 this.RemoteEndPoint = socket.RemoteEndPoint;
                 this.socket.NoDelay = true;
+
+                Running = true;
             }
 
             public void Start() {
-                if (!running) {
+                if (!Running) {
                     this.stopWatch = Stopwatch.StartNew();
-                    Read();
-                } else {
+                    now = stopWatch.ElapsedMilliseconds;
+                    last = now;
 
-                }
+                    Read();
+                } else 
+                    throw new InvalidOperationException("Client already running");
             }
 
             private void Read() {
@@ -167,10 +176,6 @@ namespace TcpSocketLib
                 HandleDisconnect(new Exception("Manual disconnect"));
             }
 
-            long last = 0;
-
-            int packetRate = 0;
-
             private void ReceiveCallBack(IAsyncResult iar) {
                 try {
                     //Check if we recieved more than 1 byte
@@ -178,12 +183,13 @@ namespace TcpSocketLib
                         //Allocate a buffer with the size
                         buffer = new byte[BitConverter.ToInt32(buffer, 0)];
 
+                        #region FloodProtector
                         //Flood protector stuff (buggy) lol
                         if (FloodProtector != null) {
                             packetRate++;
 
-                            long now = stopWatch.ElapsedMilliseconds;
-                            long time = (now - last);
+                            now = stopWatch.ElapsedMilliseconds;
+                            time = (now - last);
 
                             if (time >= FloodProtector?.OverTime) {
                                 last = now;
@@ -195,12 +201,14 @@ namespace TcpSocketLib
                                 packetRate = 0;
                             }
                         }
+                        #endregion
+
                         //Check if the buffer size is bigger than whats allowed
-                        if (buffer.Length > MaxMessageSize)
+                        if (buffer.Length > MaxPacketSize)
                             HandleDisconnect(new Exception("Message was too big"));
                         else {
+                            //Check if we're gonna recieve more than 0 bytes
                             if (buffer.Length > 0) {
-                                //Check if we're gonna recieve more than 0 bytes
                                 this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, FinalReceiveCallBack, null);
                                 return;
                             } else {
