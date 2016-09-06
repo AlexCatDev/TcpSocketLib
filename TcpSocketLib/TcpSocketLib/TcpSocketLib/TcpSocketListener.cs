@@ -8,57 +8,10 @@ namespace TcpSocketLib
 {
     public class TcpSocketListener
     {
-
-        public class ClientConnectedArgs
-        {
-            public TcpSocket TcpSocket { get; set; }
-            public DateTime TimeStamp { get; set; }
-
-            public ClientConnectedArgs(TcpSocket socket) {
-                TcpSocket = socket;
-                TimeStamp = DateTime.Now;
-            }
-        }
-
-        public class ClientDisconnectedArgs
-        {
-            public TcpSocket TcpSocket { get; set; }
-            public DateTime TimeStamp { get; set; }
-
-            public ClientDisconnectedArgs(TcpSocket socket) {
-                TcpSocket = socket;
-                TimeStamp = DateTime.Now;
-            }
-        }
-
-        public class FloodDetectedArgs
-        {
-            public TcpSocket TcpSocket { get; set; }
-            public FloodProtector FloodProtector { get; set; }
-
-            public FloodDetectedArgs(TcpSocket socket, FloodProtector protector) {
-                TcpSocket = socket;
-                FloodProtector = protector;
-            }
-        }
-
-        public class PacketReceivedArgs
-        {
-            public TcpSocket TcpSocket { get; set; }
-            public byte[] Data { get; set; }
-            public int Length { get; set; }
-
-            public PacketReceivedArgs(TcpSocket socket, byte[] data) {
-                this.TcpSocket = socket;
-                this.Data = data;
-                this.Length = data.Length;
-            }
-        }
-
-        public delegate void PacketReceivedEventHandler(PacketReceivedArgs PacketReceivedArgs);
-        public delegate void FloodDetectedEventHandler(FloodDetectedArgs FloodDetectedArgs);
-        public delegate void ClientConnectedEventHandler(ClientConnectedArgs ClientConnectedArgs);
-        public delegate void ClientDisconnectedEventHandler(ClientDisconnectedArgs ClientDisconnectedArgs);
+        public delegate void PacketReceivedEventHandler(TcpSocket TcpSocket, PacketReceivedArgs PacketReceivedArgs);
+        public delegate void FloodDetectedEventHandler(TcpSocket TcpSocket);
+        public delegate void ClientConnectedEventHandler(TcpSocket TcpSocket);
+        public delegate void ClientDisconnectedEventHandler(TcpSocket TcpSocket);
 
         public event PacketReceivedEventHandler PacketRecieved;
         public event ClientConnectedEventHandler ClientConnected;
@@ -72,10 +25,6 @@ namespace TcpSocketLib
         public int MaxConnectionQueue { get; private set; }
 
         Socket listener;
-
-        public TcpSocket[] GetConnectedClients() {
-            return ConnectedClients.ToArray();
-        }
 
         public TcpSocketListener(int Port) {
             this.Port = Port;
@@ -108,12 +57,16 @@ namespace TcpSocketLib
             }
         }
 
+        public TcpSocket[] GetConnectedClients() {
+            return ConnectedClients.ToArray();
+        }
+
         private void AcceptCallBack(IAsyncResult iar) {
             try {
                 Socket accepted = listener.EndAccept(iar);
                 TcpSocket s = new TcpSocket(accepted, this);
                 this.ConnectedClients.Add(s);
-                this.ClientConnected?.Invoke(new ClientConnectedArgs(s));
+                this.ClientConnected?.Invoke(s);
                 s.Start();
 
                 this.listener.BeginAccept(AcceptCallBack, null);
@@ -180,8 +133,6 @@ namespace TcpSocketLib
                 try {
                     //Check if we recieved more than 1 byte
                     if (this.socket.EndReceive(iar) > 1) {
-                        //Allocate a buffer with the size
-                        buffer = new byte[BitConverter.ToInt32(buffer, 0)];
 
                         #region FloodProtector
                         //Flood protector stuff (buggy) lol
@@ -196,27 +147,31 @@ namespace TcpSocketLib
 #if DEBUG
                                 Console.WriteLine("FloodProtector Status:\nTime: {0}\nPackets during that period: {1}", time, packetRate);
 #endif
-                                if (packetRate >= FloodProtector?.MaxPackets) 
-                                    tsl.FloodDetected?.Invoke(new FloodDetectedArgs(this, FloodProtector));
+                                if (packetRate >= FloodProtector?.MaxPackets)
+                                    tsl.FloodDetected?.Invoke(this);
                                 packetRate = 0;
                             }
                         }
                         #endregion
 
-                        //Check if the buffer size is bigger than whats allowed
-                        if (buffer.Length > MaxPacketSize)
+                        int dataSize = BitConverter.ToInt32(buffer, 0);
+
+                        //Check if the data size is bigger than whats allowed
+                        if (dataSize > MaxPacketSize)
                             HandleDisconnect(new Exception("Message was too big"));
-                        else {
-                            //Check if we're gonna recieve more than 0 bytes
-                            if (buffer.Length > 0) {
-                                this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, FinalReceiveCallBack, null);
+
+                            //Check if dataSize is bigger than 0
+                            if (dataSize > 0) {
+
+                            //Allocate a buffer with the size
+                            buffer = new byte[dataSize];
+                            this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, FinalReceiveCallBack, null);
                                 return;
                             } else {
-                                HandleDisconnect(new Exception("Buffer is 0 length"));
+                                HandleDisconnect(new Exception("data was 0"));
                             }
-                        }
                     } else {
-                        HandleDisconnect(new Exception("Length was somehow less than 1?"));
+                        HandleDisconnect(new Exception("Received a invalid packet"));
                     }
 
                 } catch (Exception ex) {
@@ -230,14 +185,14 @@ namespace TcpSocketLib
                 Console.WriteLine(ex.StackTrace);
 #endif
                 this.tsl.ConnectedClients.Remove(this);
-                this.tsl.ClientDisconnected?.Invoke(new ClientDisconnectedArgs(this));
+                this.tsl.ClientDisconnected?.Invoke(this);
                 this.socket.Close();
             }
 
             private void FinalReceiveCallBack(IAsyncResult iar) {
                 try {
                     this.socket.EndReceive(iar);
-                    this.tsl.PacketRecieved?.Invoke(new PacketReceivedArgs(this, buffer));
+                    this.tsl.PacketRecieved?.Invoke(this, new PacketReceivedArgs(buffer));
                     Read();
                 }catch(Exception ex) {
                     HandleDisconnect(ex);
