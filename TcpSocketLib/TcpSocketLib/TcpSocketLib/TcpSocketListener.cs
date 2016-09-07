@@ -8,10 +8,10 @@ namespace TcpSocketLib
 {
     public class TcpSocketListener
     {
-        public delegate void PacketReceivedEventHandler(TcpSocket TcpSocket, PacketReceivedArgs PacketReceivedArgs);
-        public delegate void FloodDetectedEventHandler(TcpSocket TcpSocket);
-        public delegate void ClientConnectedEventHandler(TcpSocket TcpSocket);
-        public delegate void ClientDisconnectedEventHandler(TcpSocket TcpSocket);
+        public delegate void PacketReceivedEventHandler(TcpSocket sender, PacketReceivedArgs PacketReceivedArgs);
+        public delegate void FloodDetectedEventHandler(TcpSocket sender);
+        public delegate void ClientConnectedEventHandler(TcpSocket sender);
+        public delegate void ClientDisconnectedEventHandler(TcpSocket sender);
 
         public event PacketReceivedEventHandler PacketRecieved;
         public event ClientConnectedEventHandler ClientConnected;
@@ -33,7 +33,7 @@ namespace TcpSocketLib
 
         public void Start(int MaxConnectionQueue = 25) {
             if (Running) {
-                throw new InvalidOperationException("Listener is already running.");
+                throw new InvalidOperationException("Listener is already running");
             } else {
                 this.ConnectedClients = new List<TcpSocket>();
                 this.MaxConnectionQueue = MaxConnectionQueue;
@@ -53,7 +53,7 @@ namespace TcpSocketLib
                 MaxConnectionQueue = 0;
                 Running = false;
             } else {
-                throw new InvalidOperationException("Listener isn't running.");
+                throw new InvalidOperationException("Listener isn't running");
             }
         }
 
@@ -158,7 +158,7 @@ namespace TcpSocketLib
 
                         //Check if the data size is bigger than whats allowed
                         if (dataSize > MaxPacketSize)
-                            HandleDisconnect(new Exception("Message was too big"));
+                            HandleDisconnect(new Exception("Packet was bigger than allowed"));
 
                             //Check if dataSize is bigger than 0
                             if (dataSize > 0) {
@@ -168,7 +168,7 @@ namespace TcpSocketLib
                             this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, FinalReceiveCallBack, null);
                                 return;
                             } else {
-                                HandleDisconnect(new Exception("data was 0"));
+                                HandleDisconnect(new Exception("data was 0 length"));
                             }
                     } else {
                         HandleDisconnect(new Exception("Received a invalid packet"));
