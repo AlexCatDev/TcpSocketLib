@@ -3,11 +3,11 @@
     public class FloodProtector
     {
         public int MaxPackets { get; set; }
-        public int OverTime { get; set; }
+        public int Time { get; set; }
 
-        public FloodProtector(int MaxPackets, int OverTime) {
+        public FloodProtector(int MaxPackets, int Time) {
             this.MaxPackets = MaxPackets;
-            this.OverTime = OverTime;
+            this.Time = Time;
         }
     }
 }
