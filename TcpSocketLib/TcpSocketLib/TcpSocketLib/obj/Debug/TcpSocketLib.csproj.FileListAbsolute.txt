@@ -1,0 +1,5 @@
+C:\Users\Alex\Documents\GitHub\TcpSocketLib\TcpSocketLib\TcpSocketLib\TcpSocketLib\bin\Debug\TcpSocketLib.dll
+C:\Users\Alex\Documents\GitHub\TcpSocketLib\TcpSocketLib\TcpSocketLib\TcpSocketLib\bin\Debug\TcpSocketLib.pdb
+C:\Users\Alex\Documents\GitHub\TcpSocketLib\TcpSocketLib\TcpSocketLib\TcpSocketLib\obj\Debug\TcpSocketLib.csprojResolveAssemblyReference.cache
+C:\Users\Alex\Documents\GitHub\TcpSocketLib\TcpSocketLib\TcpSocketLib\TcpSocketLib\obj\Debug\TcpSocketLib.dll
+C:\Users\Alex\Documents\GitHub\TcpSocketLib\TcpSocketLib\TcpSocketLib\TcpSocketLib\obj\Debug\TcpSocketLib.pdb
