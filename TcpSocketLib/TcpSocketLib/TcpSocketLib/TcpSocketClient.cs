@@ -40,7 +40,7 @@ namespace TcpSocketLib
                     buffer = new byte[BitConverter.ToInt32(buffer, 0)];
                     this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, FinalReceiveCallBack, null);
                 } else {
-                    HandleDisconnect(new Exception("Invalid packet received."));
+                    HandleDisconnect(new Exception("Invalid packet received"));
                 }
             }catch(Exception ex) {
                 HandleDisconnect(ex);
