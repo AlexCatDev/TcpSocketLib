@@ -86,7 +86,7 @@ namespace TcpSocketLib
             public FloodProtector FloodProtector { get; set; }
 
             Socket socket;
-            TcpSocketListener tsl;
+            TcpSocketListener listener;
 
             Stopwatch stopWatch;
 
@@ -98,9 +98,9 @@ namespace TcpSocketLib
             long time = 0;
             int packetRate = 0;
 
-            public TcpSocket(Socket socket, TcpSocketListener tsl) {
+            public TcpSocket(Socket socket, TcpSocketListener listener) {
                 this.socket = socket;
-                this.tsl = tsl;
+                this.listener = listener;
                 this.MaxPacketSize = int.MaxValue;
                 this.RemoteEndPoint = socket.RemoteEndPoint;
                 this.socket.NoDelay = true;
@@ -135,20 +135,19 @@ namespace TcpSocketLib
                     if (this.socket.EndReceive(iar) > 1) {
 
                         #region FloodProtector
-                        //Flood protector stuff (buggy) lol
+
                         if (FloodProtector != null) {
                             packetRate++;
 
                             now = stopWatch.ElapsedMilliseconds;
                             time = (now - last);
 
-                            if (time >= FloodProtector?.OverTime) {
+                            if (time >= FloodProtector?.Time) {
                                 last = now;
-#if DEBUG
-                                Console.WriteLine("FloodProtector Status:\nTime: {0}\nPackets during that period: {1}", time, packetRate);
-#endif
-                                if (packetRate >= FloodProtector?.MaxPackets)
-                                    tsl.FloodDetected?.Invoke(this);
+
+                                if (packetRate > FloodProtector?.MaxPackets)
+                                    listener.FloodDetected?.Invoke(this);
+
                                 packetRate = 0;
                             }
                         }
@@ -184,15 +183,15 @@ namespace TcpSocketLib
 #if DEBUG
                 Console.WriteLine(ex.StackTrace);
 #endif
-                this.tsl.ConnectedClients.Remove(this);
-                this.tsl.ClientDisconnected?.Invoke(this);
+                this.listener.ConnectedClients.Remove(this);
+                this.listener.ClientDisconnected?.Invoke(this);
                 this.socket.Close();
             }
 
             private void FinalReceiveCallBack(IAsyncResult iar) {
                 try {
                     this.socket.EndReceive(iar);
-                    this.tsl.PacketRecieved?.Invoke(this, new PacketReceivedArgs(buffer));
+                    this.listener.PacketRecieved?.Invoke(this, new PacketReceivedArgs(buffer));
                     Read();
                 }catch(Exception ex) {
                     HandleDisconnect(ex);
