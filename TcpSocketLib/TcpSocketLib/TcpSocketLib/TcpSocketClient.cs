@@ -74,6 +74,11 @@ namespace TcpSocketLib
                 socket.Send(data);
             }
         }
-    }
 
+        public void Dispose() {
+            socket.Dispose();
+            buffer = null;
+        }
+
+    }
 }

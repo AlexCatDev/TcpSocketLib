@@ -23,10 +23,17 @@ namespace TcpSocketLib
         public bool Running { get; private set; }
         public int Port { get; private set; }
         public int MaxConnectionQueue { get; private set; }
+        public int MaxPacketSize { get; private set; }
 
         Socket listener;
 
-        public TcpSocketListener(int Port) {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Port">Port to listen on</param>
+        /// <param name="MaxPacketSize">Determines the max allowed packet size to be received, unless specifically set by the client object</param>
+        public TcpSocketListener(int Port, int MaxPacketSize = Int32.MaxValue) {
+            this.MaxPacketSize = MaxPacketSize;
             this.Port = Port;
             this.Running = false;
         }
@@ -64,7 +71,7 @@ namespace TcpSocketLib
         private void AcceptCallBack(IAsyncResult iar) {
             try {
                 Socket accepted = listener.EndAccept(iar);
-                TcpSocket s = new TcpSocket(accepted, this);
+                TcpSocket s = new TcpSocket(accepted, this, MaxPacketSize);
                 this.ConnectedClients.Add(s);
                 this.ClientConnected?.Invoke(s);
                 s.Start();
@@ -82,6 +89,8 @@ namespace TcpSocketLib
             public bool Running { get; private set; }
             public int MaxPacketSize { get; set; }
 
+            public bool AllowZeroLengthPackets { get; set; }
+
             public EndPoint RemoteEndPoint { get; private set; }
             public FloodProtector FloodProtector { get; set; }
 
@@ -98,13 +107,15 @@ namespace TcpSocketLib
             long time = 0;
             int packetRate = 0;
 
-            public TcpSocket(Socket socket, TcpSocketListener listener) {
+            public TcpSocket(Socket socket, TcpSocketListener listener, int MaxPacketSize) {
                 this.socket = socket;
                 this.listener = listener;
                 this.MaxPacketSize = int.MaxValue;
                 this.RemoteEndPoint = socket.RemoteEndPoint;
                 this.socket.NoDelay = true;
 
+                this.AllowZeroLengthPackets = false;
+                this.MaxPacketSize = MaxPacketSize;
                 Running = true;
             }
 
@@ -167,10 +178,13 @@ namespace TcpSocketLib
                             this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, FinalReceiveCallBack, null);
                                 return;
                             } else {
-                                HandleDisconnect(new Exception("data was 0 length"));
-                            }
+                            if (AllowZeroLengthPackets)
+                                this.listener.PacketRecieved?.Invoke(this, new PacketReceivedArgs(new byte[0]));
+                            else
+                                HandleDisconnect(new Exception("0 length packets wasn't set to be allowed"));
+                        }
                     } else {
-                        HandleDisconnect(new Exception("Received a invalid packet"));
+                        HandleDisconnect(new ProtocolViolationException("Received a invalid packet"));
                     }
 
                 } catch (Exception ex) {
