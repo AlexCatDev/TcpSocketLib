@@ -122,14 +122,16 @@ namespace TcpSocketLib
 
                 this.AllowZeroLengthPackets = false;
                 this.MaxPacketSize = MaxPacketSize;
-                Running = true;
+                Running = false;
             }
 
             public void Start() {
                 if (!Running) {
+                    Running = true;
                     this.stopWatch = Stopwatch.StartNew();
                     now = stopWatch.ElapsedMilliseconds;
                     last = now;
+
                     AllocateBuffer(SIZE_PAYLOAD_LENGTH);
                     ReadSize();
                 } else 
