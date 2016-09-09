@@ -2,12 +2,12 @@
 {
     public class FloodProtector
     {
-        public int MaxPackets { get; set; }
-        public int Time { get; set; }
+        public int MaxReceives { get; set; }
+        public int Delta { get; set; }
 
         public FloodProtector(int MaxPackets, int Time) {
-            this.MaxPackets = MaxPackets;
-            this.Time = Time;
+            this.MaxReceives = MaxPackets;
+            this.Delta = Time;
         }
     }
 }
