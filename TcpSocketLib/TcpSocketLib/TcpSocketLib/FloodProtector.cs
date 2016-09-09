@@ -5,8 +5,8 @@
         public int MaxReceives { get; set; }
         public int Delta { get; set; }
 
-        public FloodProtector(int MaxPackets, int Time) {
-            this.MaxReceives = MaxPackets;
+        public FloodProtector(int MaxReceives, int Time) {
+            this.MaxReceives = MaxReceives;
             this.Delta = Time;
         }
     }
