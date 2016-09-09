@@ -5,11 +5,19 @@ namespace TcpSocketLib
 {
     public class TcpSocketClient
     {
+
+        private const int SIZE_PAYLOAD_LENGTH = sizeof(int);
+
         public delegate void PacketReceivedHandler(PacketReceivedArgs PacketReceivedArgs);
         public event PacketReceivedHandler PacketRecieved;
 
+        public delegate void ReceiveProgressChangedHandler(int received, int bytesToReceive);
+        public event ReceiveProgressChangedHandler ReceiveProgressChanged;
+
         object sendLock = new object();
         byte[] buffer;
+
+        int totalRead = 0;
 
         Socket socket;
 
@@ -25,34 +33,79 @@ namespace TcpSocketLib
             this.IP = IP;
             this.Port = Port;
             socket.Connect(IP, Port);
-
-            Read();
+            AllocateBuffer(SIZE_PAYLOAD_LENGTH);
+            ReadSize();
         }
 
-        private void Read() {
-            buffer = new byte[4];
-            this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, ReceiveCallBack, null);
+
+        private void AllocateBuffer(int byteCount) {
+            buffer = new byte[byteCount];
         }
 
-        private void ReceiveCallBack(IAsyncResult iar) {
+        private void ReadSize() {
+            //The first 4 bytes of the stream contains the size as int32
+            this.socket.BeginReceive(buffer, totalRead, buffer.Length - totalRead, SocketFlags.None, ReceiveLengthCallBack, null);
+        }
+
+        private void ReceiveLengthCallBack(IAsyncResult iar) {
             try {
-                if (this.socket.EndReceive(iar) > 1) {
-                    buffer = new byte[BitConverter.ToInt32(buffer, 0)];
-                    this.socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.Partial, FinalReceiveCallBack, null);
-                } else {
-                    HandleDisconnect(new Exception("Invalid packet received"));
-                }
-            }catch(Exception ex) {
+
+                int read;
+                if ((read = this.socket.EndReceive(iar)) <= 0)
+                    HandleDisconnect(new Exception("Read no bytes"));
+                else {
+
+                    totalRead += read;
+
+                    if (totalRead < buffer.Length) {
+                        ReadSize();
+                    } else {
+
+                        int dataSize = BitConverter.ToInt32(buffer, 0);
+
+                        //Check if dataSize is bigger than 0
+                        if (dataSize > 0) {
+
+                            //Allocate a buffer with the size
+                            AllocateBuffer(dataSize);
+                            totalRead = 0;
+                            ReadPayload();
+                        } else {
+                            totalRead = 0;
+                            ReadSize();
+                            PacketRecieved?.Invoke(new PacketReceivedArgs(new byte[0]));
+                        }
+                        }
+                    }
+            } catch (Exception ex) {
                 HandleDisconnect(ex);
             }
+
         }
 
-        private void FinalReceiveCallBack(IAsyncResult iar) {
+        private void ReadPayload() {
+            this.socket.BeginReceive(buffer, totalRead, buffer.Length - totalRead, SocketFlags.None, ReceivePayloadCallBack, null);
+        }
+
+        private void ReceivePayloadCallBack(IAsyncResult iar) {
             try {
-                this.socket.EndReceive(iar);
-                PacketRecieved?.Invoke(new PacketReceivedArgs(buffer));
-                Read();
-            }catch(Exception ex) {
+                int read;
+                if ((read = this.socket.EndReceive(iar)) <= 0)
+                    HandleDisconnect(new Exception("Read no bytes"));
+
+                totalRead += read;
+                //Read progress?
+                ReceiveProgressChanged?.Invoke(totalRead, buffer.Length);
+
+                if (totalRead < buffer.Length)
+                    ReadPayload();
+                else {
+                    PacketRecieved?.Invoke(new PacketReceivedArgs(buffer));
+                    totalRead = 0;
+                    AllocateBuffer(SIZE_PAYLOAD_LENGTH);
+                    ReadSize();
+                }
+            } catch (Exception ex) {
                 HandleDisconnect(ex);
             }
         }
