@@ -12,7 +12,7 @@ namespace TcpSocketLib
         public delegate void FloodDetectedEventHandler(TcpSocket sender);
         public delegate void ClientConnectedEventHandler(TcpSocket sender);
         public delegate void ClientDisconnectedEventHandler(TcpSocket sender);
-        public delegate void ReceiveProgressChangedHandler(TcpSocket sender, int received, int bytesToReceive);
+        public delegate void ReceiveProgressChangedHandler(TcpSocket sender, int Received, int BytesToReceive);
 
         public event ReceiveProgressChangedHandler ReceiveProgressChanged;
         public event PacketReceivedEventHandler PacketRecieved;
@@ -66,9 +66,7 @@ namespace TcpSocketLib
             }
         }
 
-        public TcpSocket[] GetConnectedClients() {
-            return ConnectedClients.ToArray();
-        }
+        public TcpSocket[] GetConnectedClients => ConnectedClients.ToArray();
 
         private void AcceptCallBack(IAsyncResult iar) {
             try {
@@ -96,7 +94,7 @@ namespace TcpSocketLib
             public bool AllowZeroLengthPackets { get; set; }
 
             public EndPoint RemoteEndPoint { get; private set; }
-            public FloodProtector FloodProtector { get; set; }
+            public FloodDetector FloodDetector { get; set; }
 
             Socket socket;
             TcpSocketListener listener;
@@ -133,46 +131,48 @@ namespace TcpSocketLib
                     last = now;
 
                     AllocateBuffer(SIZE_PAYLOAD_LENGTH);
-                    ReadSize();
+                    BeginReadSize();
                 } else 
                     throw new InvalidOperationException("Client already running");
             }
 
             public void Disconnect() {
-                HandleDisconnect(new Exception("Manual disconnect"));
+                HandleDisconnect(new Exception("Disconnect"));
             }
 
             private void AllocateBuffer(int byteCount) {
                 buffer = new byte[byteCount];
             }
 
-            private void ReadSize() {
+            private void BeginReadSize() {
                 //The first 4 bytes of the stream contains the size as int32
-                this.socket.BeginReceive(buffer, totalRead, buffer.Length - totalRead, SocketFlags.None, ReceiveLengthCallBack, null);
+                this.socket.BeginReceive(buffer, totalRead, buffer.Length - totalRead, SocketFlags.None, ReadSizeCallBack, null);
             }
 
-            private void ReceiveLengthCallBack(IAsyncResult iar) {
+            private void ReadSizeCallBack(IAsyncResult iar) {
                 try {
-                    
-                    int read;
-                    if ((read = this.socket.EndReceive(iar)) <= 0)
-                        HandleDisconnect(new Exception("Disconnected."));
+
+                    int read = this.socket.EndReceive(iar);
+
+                    if (read <= 0)
+                        throw new SocketException((int)SocketError.ConnectionReset);
+
                     else {
 
                         totalRead += read;
 
-                        if (FloodProtector != null)
+                        if (FloodDetector != null)
                             CheckFlood();
 
                         if (totalRead < buffer.Length) {
-                            ReadSize();
+                            BeginReadSize();
                         } else {
 
                             int dataSize = BitConverter.ToInt32(buffer, 0);
 
                             //Check if the data size is bigger than whats allowed
                             if (dataSize > MaxPacketSize)
-                                HandleDisconnect(new Exception("Packet was bigger than allowed"));
+                                HandleDisconnect(new Exception($"Packet was bigger than allowed {dataSize} > {MaxPacketSize}"));
 
                             //Check if dataSize is bigger than 0
                             if (dataSize > 0) {
@@ -180,15 +180,15 @@ namespace TcpSocketLib
                                 //Allocate a buffer with the size
                                 AllocateBuffer(dataSize);
                                 totalRead = 0;
-                                ReadPayload();
+                                BeginReadPayload();
                                 return;
                             } else {
                                 if (AllowZeroLengthPackets) {
                                     totalRead = 0;
-                                    ReadSize();
+                                    BeginReadSize();
                                     this.listener.PacketRecieved?.Invoke(this, new PacketReceivedArgs(new byte[0]));
                                 } else
-                                    HandleDisconnect(new Exception("0 length packets wasn't set to be allowed"));
+                                    HandleDisconnect(new Exception("zero length packets wasn't set to be allowed"));
                             }
                         }
                     }
@@ -204,10 +204,10 @@ namespace TcpSocketLib
                 now = stopWatch.ElapsedMilliseconds;
                 time = (now - last);
 
-                if (time >= FloodProtector?.Delta) {
+                if (time >= FloodDetector?.Delta) {
                     last = now;
 
-                    if (receiveRate > FloodProtector?.MaxReceives)
+                    if (receiveRate > FloodDetector?.MaxReceives)
                         listener.FloodDetected?.Invoke(this);
 
                     receiveRate = 0;
@@ -223,30 +223,31 @@ namespace TcpSocketLib
                 this.socket.Close();
             }
 
-            private void ReadPayload() {
-                this.socket.BeginReceive(buffer, totalRead, buffer.Length - totalRead, SocketFlags.None, ReceivePayloadCallBack, null);
+            private void BeginReadPayload() {
+                this.socket.BeginReceive(buffer, totalRead, buffer.Length - totalRead, SocketFlags.None, ReadPayloadCallBack, null);
             }
 
-            private void ReceivePayloadCallBack(IAsyncResult iar) {
+            private void ReadPayloadCallBack(IAsyncResult iar) {
                 try {
-                    int read;
-                    if ((read = this.socket.EndReceive(iar)) <= 0)
-                        HandleDisconnect(new Exception("Disconnected"));
+                    int read = this.socket.EndReceive(iar);
+
+                    if (read <= 0)
+                        throw new SocketException((int)SocketError.ConnectionReset);
 
                     totalRead += read;
                     //Report progress about receiving.
                     this.listener.ReceiveProgressChanged?.Invoke(this, totalRead, buffer.Length);
 
-                    if(FloodProtector!=null)
+                    if(FloodDetector!=null)
                     CheckFlood();
 
                     if (totalRead < buffer.Length)
-                        ReadPayload();
+                        BeginReadPayload();
                     else {
                         this.listener.PacketRecieved?.Invoke(this, new PacketReceivedArgs(buffer));
                         totalRead = 0;
                         AllocateBuffer(SIZE_PAYLOAD_LENGTH);
-                        ReadSize();
+                        BeginReadSize();
                     }
                 }catch(Exception ex) {
                     HandleDisconnect(ex);

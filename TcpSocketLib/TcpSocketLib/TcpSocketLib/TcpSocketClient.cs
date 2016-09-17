@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net.Sockets;
 
 namespace TcpSocketLib
@@ -11,7 +12,7 @@ namespace TcpSocketLib
         public delegate void PacketReceivedHandler(PacketReceivedArgs PacketReceivedArgs);
         public event PacketReceivedHandler PacketRecieved;
 
-        public delegate void ReceiveProgressChangedHandler(int received, int bytesToReceive);
+        public delegate void ReceiveProgressChangedHandler(int Received, int BytesToReceive);
         public event ReceiveProgressChangedHandler ReceiveProgressChanged;
 
         object sendLock = new object();
@@ -50,9 +51,11 @@ namespace TcpSocketLib
         private void ReceiveLengthCallBack(IAsyncResult iar) {
             try {
 
-                int read;
-                if ((read = this.socket.EndReceive(iar)) <= 0)
-                    HandleDisconnect(new Exception("Read no bytes"));
+                int read = this.socket.EndReceive(iar);
+
+                if (read <= 0)
+                    throw new SocketException((int)SocketError.ConnectionReset);
+
                 else {
 
                     totalRead += read;
@@ -89,9 +92,10 @@ namespace TcpSocketLib
 
         private void ReceivePayloadCallBack(IAsyncResult iar) {
             try {
-                int read;
-                if ((read = this.socket.EndReceive(iar)) <= 0)
-                    HandleDisconnect(new Exception("Read no bytes"));
+                int read = this.socket.EndReceive(iar);
+
+                if (read <= 0)
+                    throw new SocketException((int)SocketError.ConnectionReset);
 
                 totalRead += read;
                 //Read progress?
@@ -125,6 +129,22 @@ namespace TcpSocketLib
             lock (sendLock) {
                 socket.Send(BitConverter.GetBytes(data.Length));
                 socket.Send(data);
+            }
+        }
+
+        public void SendData(byte[] data) {
+            lock (sendLock) {
+                byte[] length = BitConverter.GetBytes(data.Length);
+                using(MemoryStream ms = new MemoryStream(data)) {
+                    if (data != null) {
+                        ms.Write(length, 0, length.Length);
+                        ms.Write(data, 0, data.Length);
+                        socket.Send(ms.GetBuffer());
+                        length = null;
+                        data = null;
+                    } else
+                        return;
+                }
             }
         }
 
