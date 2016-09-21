@@ -207,7 +207,7 @@ namespace TcpSocketLib
                 if (time >= FloodDetector?.Delta) {
                     last = now;
 
-                    if (receiveRate > FloodDetector?.MaxReceives)
+                    if (receiveRate > FloodDetector?.Receives)
                         listener.FloodDetected?.Invoke(this);
 
                     receiveRate = 0;
