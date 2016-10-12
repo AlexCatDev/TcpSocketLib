@@ -51,9 +51,9 @@ namespace TcpSocketLib
                 this.MaxPacketSize = MaxPacketSize;
                 RemoteEndPoint = socket.RemoteEndPoint;
                 this.socket.NoDelay = true;
-
                 AllowZeroLengthPackets = false;
                 Running = false;
+                ClientConnected?.Invoke(this);
             }
             else {
                 throw new InvalidOperationException("Invalid constructor");
@@ -91,6 +91,7 @@ namespace TcpSocketLib
 
         private void Connect(string IP, int Port) {
             socket.Connect(IP, Port);
+            ClientConnected?.Invoke(this);
             socket.NoDelay = true;
             Start();
         }
