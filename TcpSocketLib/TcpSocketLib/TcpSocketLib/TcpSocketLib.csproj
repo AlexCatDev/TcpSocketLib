@@ -42,6 +42,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Cryptor.cs" />
     <Compile Include="FloodDetector.cs" />
     <Compile Include="PacketReader.cs" />
     <Compile Include="PacketWriter.cs" />
