@@ -30,6 +30,7 @@
     <WarningLevel>3</WarningLevel>
     <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>
     <PlatformTarget>AnyCPU</PlatformTarget>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -46,6 +47,7 @@
     <Compile Include="FloodDetector.cs" />
     <Compile Include="PacketReader.cs" />
     <Compile Include="PacketWriter.cs" />
+    <Compile Include="PluginResolver.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TcpSocket.cs" />
     <Compile Include="TcpSocketLibEventArgs.cs" />
