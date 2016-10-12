@@ -15,7 +15,7 @@ namespace TcpSocketLib
             OutStream = _ms;
         }
 
-        public void WriteObject(object obj) {
+        public void WriteObject<T>(T obj) {
             _bf.Serialize(_ms, obj);
         }
 
