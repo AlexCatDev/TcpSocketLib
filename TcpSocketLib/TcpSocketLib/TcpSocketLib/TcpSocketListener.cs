@@ -90,7 +90,7 @@ namespace TcpSocketLib
                 tcpSocket.Start();
                 this._listener.BeginAccept(AcceptCallBack, null);
             } catch (Exception ex) {
-                MessageBox.Show(ex.Message + " \n\n [" + ex.StackTrace + "]");
+                //MessageBox.Show(ex.Message + " \n\n [" + ex.StackTrace + "]");
             }
         }
 

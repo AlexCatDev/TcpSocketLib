@@ -54,7 +54,6 @@ namespace TcpSocketLib
                 this._socket.NoDelay = true;
                 AllowZeroLengthPackets = false;
                 Running = false;
-                Start();
             }
             else {
                 throw new InvalidOperationException("Invalid constructor");
@@ -70,7 +69,6 @@ namespace TcpSocketLib
         }
 
         public void Start() {
-            MessageBox.Show(Running.ToString());
             if (Running == false) {
                 ClientConnected?.Invoke(this);
                 Running = true;
@@ -183,11 +181,10 @@ namespace TcpSocketLib
 
         void HandleDisconnect(Exception ex) {
 //#if DEBUG
-            MessageBox.Show(ex.Message + "\n\n" + "[" + $"{ex.StackTrace}" +  "]");
+            //MessageBox.Show(ex.Message + "\n\n" + "[" + $"{ex.StackTrace}" +  "]");
 //#endif
             ClientDisconnected?.Invoke(this);
             this._socket.Close();
-            Running = false;
         }
 
         private void BeginReadPayload() {
