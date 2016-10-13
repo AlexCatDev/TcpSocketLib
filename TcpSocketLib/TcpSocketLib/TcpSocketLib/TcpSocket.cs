@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Windows.Forms;
 
 namespace TcpSocketLib
 {
@@ -53,7 +54,7 @@ namespace TcpSocketLib
                 this._socket.NoDelay = true;
                 AllowZeroLengthPackets = false;
                 Running = false;
-                ClientConnected?.Invoke(this);
+                Start();
             }
             else {
                 throw new InvalidOperationException("Invalid constructor");
@@ -69,17 +70,20 @@ namespace TcpSocketLib
         }
 
         public void Start() {
-            if (!Running) {
+            MessageBox.Show(Running.ToString());
+            if (Running == false) {
+                ClientConnected?.Invoke(this);
                 Running = true;
                 _stopWatch = Stopwatch.StartNew();
                 _now = _stopWatch.ElapsedMilliseconds;
                 last = _now;
-
                 AllocateBuffer(SIZE_PAYLOAD_LENGTH);
                 BeginReadSize();
+
             }
-            else
+            else if (Running == true) {
                 throw new InvalidOperationException("Client already running");
+            }
         }
 
         public void Disconnect() {
@@ -90,13 +94,11 @@ namespace TcpSocketLib
             _buffer = new byte[byteCount];
         }
 
-        private void Connect(string IP, int Port)
+        public void Connect(string IP, int Port)
         {
             try
             {
                 _socket.Connect(IP, Port);
-                ClientConnected?.Invoke(this);
-                _socket.NoDelay = true;
                 Start();
             }
             catch (Exception ex)
@@ -180,9 +182,9 @@ namespace TcpSocketLib
         }
 
         void HandleDisconnect(Exception ex) {
-#if DEBUG
-            Console.WriteLine(ex.StackTrace);
-#endif
+//#if DEBUG
+            MessageBox.Show(ex.Message + "\n\n" + "[" + $"{ex.StackTrace}" +  "]");
+//#endif
             ClientDisconnected?.Invoke(this);
             this._socket.Close();
             Running = false;

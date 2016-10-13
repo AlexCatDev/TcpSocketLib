@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Windows.Forms;
 
 namespace TcpSocketLib
 {
@@ -57,8 +58,8 @@ namespace TcpSocketLib
                 this._listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 this._listener.Bind(new IPEndPoint(0, Port));
                 this._listener.Listen(MaxConnectionQueue);
-                this._listener.BeginAccept(AcceptCallBack, null);
                 this.Running = true;
+                this._listener.BeginAccept(AcceptCallBack, null);
             }
         }
 
@@ -79,35 +80,44 @@ namespace TcpSocketLib
             try {
                 Socket accepted = _listener.EndAccept(iar);
                 TcpSocket tcpSocket = new TcpSocket(accepted, MaxPacketSize);
-                tcpSocket.ClientConnected += (sender) => {
-                    lock (_syncLock) {
-                        _connectedClients.Add(sender);
-                    }
-                    ClientConnected?.Invoke(sender);
-                };
-                tcpSocket.ClientDisconnected += (sender) => {
-                    lock (_syncLock) {
-                        _connectedClients.Remove(sender);
-                    }
-                    ClientDisconnected?.Invoke(sender);
-                };
-                tcpSocket.FloodDetected += (sender) => {
-                    FloodDetected?.Invoke(sender);
-                };
-                tcpSocket.PacketReceived += (sender, packet) => {
-                    PacketReceived?.Invoke(sender, packet);
-                };
-                tcpSocket.ReceiveProgressChanged += (sender, r, btr) => {
-                    ReceiveProgressChanged?.Invoke(sender, r, btr);
-                };
-                tcpSocket.Start();
 
+                tcpSocket.ClientConnected += TcpSocket_ClientConnected;
+                tcpSocket.ClientDisconnected += TcpSocket_ClientDisconnected;
+                tcpSocket.PacketReceived += TcpSocket_PacketReceived;
+                tcpSocket.ReceiveProgressChanged += TcpSocket_ReceiveProgressChanged;
+                tcpSocket.FloodDetected += TcpSocket_FloodDetected;
+
+                tcpSocket.Start();
                 this._listener.BeginAccept(AcceptCallBack, null);
             } catch (Exception ex) {
-                Console.WriteLine(ex);
+                MessageBox.Show(ex.Message + " \n\n [" + ex.StackTrace + "]");
             }
         }
 
-       
+        private void TcpSocket_FloodDetected(TcpSocket sender) {
+            FloodDetected?.Invoke(sender);
+        }
+
+        private void TcpSocket_ReceiveProgressChanged(TcpSocket sender, int Received, int BytesToReceive) {
+            ReceiveProgressChanged?.Invoke(sender, Received, BytesToReceive);
+        }
+
+        private void TcpSocket_PacketReceived(TcpSocket sender, PacketReceivedArgs PacketReceivedArgs) {
+            PacketReceived?.Invoke(sender, PacketReceivedArgs);
+        }
+
+        private void TcpSocket_ClientDisconnected(TcpSocket sender) {
+            lock (_syncLock) {
+                _connectedClients.Remove(sender);
+            }
+            ClientDisconnected?.Invoke(sender);
+        }
+
+        private void TcpSocket_ClientConnected(TcpSocket sender) {
+            lock (_syncLock) {
+                _connectedClients.Add(sender);
+            }
+            ClientConnected?.Invoke(sender);
+        }
     }
 }
