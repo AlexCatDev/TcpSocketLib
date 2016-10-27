@@ -19,6 +19,6 @@ namespace TcpSocketLib
             _bf.Serialize(_ms, obj);
         }
 
-        public byte[] Data => _ms.GetBuffer();
+        public byte[] Data => _ms.ToArray();
     }
 }
