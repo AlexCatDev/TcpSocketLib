@@ -12,13 +12,15 @@ namespace TcpSocketLib
         public delegate void FloodDetectedEventHandler(TcpSocket sender);
         public delegate void ClientConnectedEventHandler(TcpSocket sender);
         public delegate void ClientDisconnectedEventHandler(TcpSocket sender);
-        public delegate void ReceiveProgressChangedHandler(TcpSocket sender, int Received, int BytesToReceive);
+        public delegate void ReceiveProgressChangedEventHandler(TcpSocket sender, int Received, int BytesToReceive);
+        public delegate void SendProgressChangedEventHandler(TcpSocket sender, int Send);
 
-        public event ReceiveProgressChangedHandler ReceiveProgressChanged;
+        public event ReceiveProgressChangedEventHandler ReceiveProgressChanged;
         public event PacketReceivedEventHandler PacketReceived;
         public event ClientConnectedEventHandler ClientConnected;
         public event ClientDisconnectedEventHandler ClientDisconnected;
         public event FloodDetectedEventHandler FloodDetected;
+        public event SendProgressChangedEventHandler SendProgressChanged;
 
         private const int SIZE_PAYLOAD_LENGTH = sizeof(int);
 
@@ -151,7 +153,7 @@ namespace TcpSocketLib
                                 PacketReceived?.Invoke(this, new PacketReceivedArgs(new byte[0]));
                             }
                             else
-                                HandleDisconnect(new Exception("zero length packets wasn't set to be allowed"));
+                                HandleDisconnect(new Exception("Zero length packets wasn't set to be allowed"));
                         }
                     }
                 }
@@ -199,7 +201,7 @@ namespace TcpSocketLib
 
                 _totalRead += read;
                 //Report progress about receiving.
-                ReceiveProgressChanged?.Invoke(this, _totalRead, _buffer.Length);
+                ReceiveProgressChanged?.Invoke(this, _totalRead + SIZE_PAYLOAD_LENGTH, _buffer.Length);
 
                 if (FloodDetector != null)
                     CheckFlood();
@@ -212,17 +214,24 @@ namespace TcpSocketLib
                     AllocateBuffer(SIZE_PAYLOAD_LENGTH);
                     BeginReadSize();
                 }
-            }
+            } 
             catch (Exception ex) {
                 HandleDisconnect(ex);
             }
         }
 
-        public void Send(byte[] bytes) {
-            lock (_syncLock) {
-                this._socket.Send(BitConverter.GetBytes(bytes.Length));
-                this._socket.Send(bytes);
+        private void SendData(byte[] data)
+        {
+            lock (_syncLock)
+            {
+                this._socket.Send(BitConverter.GetBytes(data.Length));
+                this._socket.Send(data);
+                this.SendProgressChanged?.Invoke(this, data.Length);
             }
+        }
+
+        public void Send(byte[] bytes) {
+            SendData(bytes);
         }
 
         public void Dispose() {

@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using TcpSocketLib.Extensions;
 
-namespace TcpSocketLib
+namespace TcpSocketLib.Extra
 {
     public static class UUID
     {

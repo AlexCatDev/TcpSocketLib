@@ -12,13 +12,15 @@ namespace TcpSocketLib
         public delegate void FloodDetectedEventHandler(TcpSocket sender);
         public delegate void ClientConnectedEventHandler(TcpSocket sender);
         public delegate void ClientDisconnectedEventHandler(TcpSocket sender);
-        public delegate void ReceiveProgressChangedHandler(TcpSocket sender, int Received, int BytesToReceive);
+        public delegate void ReceiveProgressChangedEventHandler(TcpSocket sender, int Received, int BytesToReceive);
+        public delegate void SendProgressChangedEventHandler(TcpSocket sender, int Send);
 
-        public event ReceiveProgressChangedHandler ReceiveProgressChanged;
+        public event ReceiveProgressChangedEventHandler ReceiveProgressChanged;
         public event PacketReceivedEventHandler PacketReceived;
         public event ClientConnectedEventHandler ClientConnected;
         public event ClientDisconnectedEventHandler ClientDisconnected;
         public event FloodDetectedEventHandler FloodDetected;
+        public event SendProgressChangedEventHandler SendProgressChanged;
 
         public List<TcpSocket> ConnectedClients {
             get {
@@ -84,13 +86,19 @@ namespace TcpSocketLib
                 tcpSocket.ClientDisconnected += TcpSocket_ClientDisconnected;
                 tcpSocket.PacketReceived += TcpSocket_PacketReceived;
                 tcpSocket.ReceiveProgressChanged += TcpSocket_ReceiveProgressChanged;
+                tcpSocket.SendProgressChanged += TcpSocket_SendProgressChanged;
                 tcpSocket.FloodDetected += TcpSocket_FloodDetected;
 
                 tcpSocket.Start();
                 this._listener.BeginAccept(AcceptCallBack, null);
-            } catch (Exception ex) {
+            } catch {
                 //MessageBox.Show(ex.Message + " \n\n [" + ex.StackTrace + "]");
             }
+        }
+
+        private void TcpSocket_SendProgressChanged(TcpSocket sender, int Send)
+        {
+            SendProgressChanged?.Invoke(sender, Send);
         }
 
         private void TcpSocket_FloodDetected(TcpSocket sender) {

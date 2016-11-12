@@ -15,11 +15,13 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
+    <Optimize>true</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -30,7 +32,7 @@
     <WarningLevel>3</WarningLevel>
     <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -44,20 +46,31 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Compression\LZ4\ILZ4Compressor.cs" />
+    <Compile Include="Compression\LZ4\ILZ4Decompressor.cs" />
+    <Compile Include="Compression\LZ4\LZ4.cs" />
+    <Compile Include="Compression\LZ4\LZ4Compressor32.cs" />
+    <Compile Include="Compression\LZ4\LZ4Compressor64.cs" />
+    <Compile Include="Compression\LZ4\LZ4CompressorFactory.cs" />
+    <Compile Include="Compression\LZ4\LZ4Decompressor32.cs" />
+    <Compile Include="Compression\LZ4\LZ4Decompressor64.cs" />
+    <Compile Include="Compression\LZ4\LZ4DecompressorFactory.cs" />
+    <Compile Include="Compression\LZ4\LZ4Util.cs" />
+    <Compile Include="Extensions\ListExtensions.cs" />
     <Compile Include="FloodDetector.cs" />
-    <Compile Include="PacketReader.cs" />
-    <Compile Include="PacketWriter.cs" />
-    <Compile Include="PluginResolver.cs" />
+    <Compile Include="Serialization\PacketReader.cs" />
+    <Compile Include="Serialization\PacketWriter.cs" />
+    <Compile Include="Extra\PluginResolver.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TcpSocket.cs" />
-    <Compile Include="TcpSocketLibEventArgs.cs" />
+    <Compile Include="PacketReceivedArgs.cs" />
     <Compile Include="TcpSocketListener.cs" />
-    <Compile Include="Utils.cs" />
-    <Compile Include="UUID.cs" />
+    <Compile Include="Extra\UUID.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Protocol.txt" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 
-namespace TcpSocketLib
+namespace TcpSocketLib.Extra
 {
     public class PluginResolver<PluginInterface>
     {
