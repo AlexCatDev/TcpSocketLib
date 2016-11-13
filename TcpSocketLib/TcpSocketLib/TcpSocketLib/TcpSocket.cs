@@ -92,8 +92,8 @@ namespace TcpSocketLib
             }
         }
 
-        public void Disconnect() {
-            HandleDisconnect(new Exception("Manual disconnect"));
+        public void Disconnect(bool reuseSocket) {
+            HandleDisconnect(new Exception("Manual disconnect"), reuseSocket);
         }
 
         private void AllocateBuffer(int byteCount) {
@@ -141,7 +141,7 @@ namespace TcpSocketLib
 
                         //Check if the data size is bigger than whats allowed
                         if (dataSize > MaxPacketSize)
-                            HandleDisconnect(new Exception($"Packet was bigger than allowed {dataSize} > {MaxPacketSize}"));
+                            HandleDisconnect(new Exception($"Packet was bigger than allowed {dataSize} > {MaxPacketSize}"), false);
 
                         //Check if dataSize is bigger than 0
                         if (dataSize > 0) {
@@ -159,14 +159,14 @@ namespace TcpSocketLib
                                 PacketReceived?.Invoke(this, new PacketReceivedArgs(new byte[0]));
                             }
                             else
-                                HandleDisconnect(new Exception("Zero length packets wasn't set to be allowed"));
+                                HandleDisconnect(new Exception("Zero length packets wasn't set to be allowed"), false);
                         }
                     }
                 }
             }
             catch (ObjectDisposedException) { return; }
             catch (Exception ex) {
-                HandleDisconnect(ex);
+                HandleDisconnect(ex, false);
             }
 
         }
@@ -189,8 +189,9 @@ namespace TcpSocketLib
             }
         }
 
-        void HandleDisconnect(Exception ex) {
+        private void HandleDisconnect(Exception ex, bool reuseSocket) {
             Connected = false;
+            _socket.Disconnect(reuseSocket);
             ClientDisconnected?.Invoke(this);
         }
 
@@ -222,7 +223,7 @@ namespace TcpSocketLib
                 }
             } catch (ObjectDisposedException) { return; }
             catch (Exception ex) {
-                HandleDisconnect(ex);
+                HandleDisconnect(ex, false);
             }
         }
 
