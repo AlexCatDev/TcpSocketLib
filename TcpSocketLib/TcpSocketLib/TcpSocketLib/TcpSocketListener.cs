@@ -5,7 +5,7 @@ using System.Net.Sockets;
 
 namespace TcpSocketLib
 {
-    public class TcpSocketListener
+    public class TcpSocketListener : IDisposable
     {
 
         public delegate void PacketReceivedEventHandler(TcpSocket sender, PacketReceivedArgs PacketReceivedArgs);
@@ -26,7 +26,6 @@ namespace TcpSocketLib
             get {
                 lock (_syncLock) { return _connectedClients; }
             }
-            private set { }
         }
 
         public bool Running { get; private set; }
@@ -36,7 +35,7 @@ namespace TcpSocketLib
 
         Socket _listener;
         List<TcpSocket> _connectedClients;
-        object _syncLock = new object();
+        object _syncLock;
 
         /// <summary>
         /// 
@@ -46,21 +45,24 @@ namespace TcpSocketLib
         public TcpSocketListener(int Port, int MaxPacketSize = 85000) {
             this.MaxPacketSize = MaxPacketSize;
             this.Port = Port;
-            this.Running = false;
+
+            Running = false;
+
+            _syncLock = new object();
+            _connectedClients = new List<TcpSocket>();
+
         }
 
         public void Start(int MaxConnectionQueue = 25) {
             if (Running) {
-                throw new InvalidOperationException("Listener is already running");
+                throw new InvalidOperationException("Listener is already running.");
             } else {
-                this.ConnectedClients = new List<TcpSocket>();
-                this._connectedClients = new List<TcpSocket>();
                 this.MaxConnectionQueue = MaxConnectionQueue;
-                this._listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                this._listener.Bind(new IPEndPoint(0, Port));
-                this._listener.Listen(MaxConnectionQueue);
-                this.Running = true;
-                this._listener.BeginAccept(AcceptCallBack, null);
+                _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                _listener.Bind(new IPEndPoint(0, Port));
+                _listener.Listen(MaxConnectionQueue);
+                Running = true;
+                _listener.BeginAccept(AcceptCallBack, null);
             }
         }
 
@@ -68,12 +70,14 @@ namespace TcpSocketLib
             if (Running) {
                 _listener.Close();
                 _listener = null;
-                _connectedClients = null;
-                ConnectedClients = null;
+                foreach (var client in _connectedClients) {
+                    client.Dispose();
+                }
+                _connectedClients.Clear();
                 MaxConnectionQueue = 0;
                 Running = false;
             } else {
-                throw new InvalidOperationException("Listener isn't running");
+                throw new InvalidOperationException("Listener isn't running.");
             }
         }
 
@@ -90,7 +94,7 @@ namespace TcpSocketLib
                 tcpSocket.FloodDetected += TcpSocket_FloodDetected;
 
                 tcpSocket.Start();
-                this._listener.BeginAccept(AcceptCallBack, null);
+                _listener.BeginAccept(AcceptCallBack, null);
             } catch {
                 //MessageBox.Show(ex.Message + " \n\n [" + ex.StackTrace + "]");
             }
@@ -125,6 +129,10 @@ namespace TcpSocketLib
                 _connectedClients.Add(sender);
             }
             ClientConnected?.Invoke(sender);
+        }
+
+        public void Dispose() {
+            Stop();
         }
     }
 }

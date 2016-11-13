@@ -58,6 +58,7 @@
     <Compile Include="Compression\LZ4\LZ4Util.cs" />
     <Compile Include="Extensions\ListExtensions.cs" />
     <Compile Include="FloodDetector.cs" />
+    <Compile Include="Serialization\BinarySerializer.cs" />
     <Compile Include="Serialization\PacketReader.cs" />
     <Compile Include="Serialization\PacketWriter.cs" />
     <Compile Include="Extra\PluginResolver.cs" />

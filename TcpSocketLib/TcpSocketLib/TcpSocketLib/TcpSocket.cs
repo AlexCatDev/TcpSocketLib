@@ -5,8 +5,9 @@ using System.Net.Sockets;
 
 namespace TcpSocketLib
 {
-    public class TcpSocket
+    public class TcpSocket : IDisposable
     {
+        public const int SIZE_PAYLOAD_LENGTH = sizeof(int);
 
         public delegate void PacketReceivedEventHandler(TcpSocket sender, PacketReceivedArgs PacketReceivedArgs);
         public delegate void FloodDetectedEventHandler(TcpSocket sender);
@@ -22,11 +23,11 @@ namespace TcpSocketLib
         public event FloodDetectedEventHandler FloodDetected;
         public event SendProgressChangedEventHandler SendProgressChanged;
 
-        private const int SIZE_PAYLOAD_LENGTH = sizeof(int);
-
         public object UserState { get; set; }
         public bool Running { get; private set; }
         public int MaxPacketSize { get; set; }
+
+        public bool Connected { get; set; }
 
         public bool AllowZeroLengthPackets { get; set; }
 
@@ -38,10 +39,10 @@ namespace TcpSocketLib
         Stopwatch _stopWatch;
 
         byte[] _buffer;
-        object _syncLock = new object();
+        object _syncLock;
 
         long _now = 0;
-        long last = 0;
+        long _last = 0;
         long _time = 0;
         int _receiveRate = 0;
 
@@ -49,44 +50,50 @@ namespace TcpSocketLib
 
         public TcpSocket(Socket socket, int MaxPacketSize) {
             if (socket != null) {
-                this._socket = socket;
+                _socket = socket;
                 this.MaxPacketSize = MaxPacketSize;
                 RemoteEndPoint = socket.RemoteEndPoint;
-                this._socket.NoDelay = true;
-                AllowZeroLengthPackets = false;
-                Running = false;
-            }
-            else {
-                throw new InvalidOperationException("Invalid constructor");
+
+                Setup();
+            } else {
+                throw new InvalidOperationException("Socket is null");
             }
         }
 
         public TcpSocket(int MaxPacketSize) {
             this.MaxPacketSize = MaxPacketSize;
-            AllowZeroLengthPackets = false;
-            Running = false;
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _socket.NoDelay = true;
+
+            Setup();
+        }
+
+        private void Setup() {
+            AllowZeroLengthPackets = false;
+            Running = false;
+            Connected = false;
+
+            _syncLock = new object();
         }
 
         public void Start() {
             if (Running == false) {
-                ClientConnected?.Invoke(this);
+                Connected = true;
                 Running = true;
+                ClientConnected?.Invoke(this);
                 _stopWatch = Stopwatch.StartNew();
                 _now = _stopWatch.ElapsedMilliseconds;
-                last = _now;
+                _last = _now;
                 AllocateBuffer(SIZE_PAYLOAD_LENGTH);
                 BeginReadSize();
 
-            }
-            else if (Running == true) {
+            } else if (Running == true) {
                 throw new InvalidOperationException("Client already running");
             }
         }
 
         public void Disconnect() {
-            HandleDisconnect(new Exception("Disconnect"));
+            HandleDisconnect(new Exception("Manual disconnect"));
         }
 
         private void AllocateBuffer(int byteCount) {
@@ -100,21 +107,21 @@ namespace TcpSocketLib
                 _socket.Connect(IP, Port);
                 Start();
             }
-            catch (Exception ex)
+            catch
             {
-                throw ex;
+                throw;
             }
         }
 
         private void BeginReadSize() {
             //The first 4 bytes of the stream contains the size as int32
-            this._socket.BeginReceive(_buffer, _totalRead, _buffer.Length - _totalRead, SocketFlags.None, ReadSizeCallBack, null);
+            _socket.BeginReceive(_buffer, _totalRead, _buffer.Length - _totalRead, SocketFlags.None, ReadSizeCallBack, null);
         }
 
         private void ReadSizeCallBack(IAsyncResult iar) {
             try {
 
-                int read = this._socket.EndReceive(iar);
+                int read = _socket.EndReceive(iar);
 
                 if (read <= 0)
                     throw new SocketException((int)SocketError.ConnectionReset);
@@ -123,7 +130,6 @@ namespace TcpSocketLib
 
                     _totalRead += read;
 
-                    if (FloodDetector != null)
                         CheckFlood();
 
                     if (_totalRead < _buffer.Length) {
@@ -158,6 +164,7 @@ namespace TcpSocketLib
                     }
                 }
             }
+            catch (ObjectDisposedException) { return; }
             catch (Exception ex) {
                 HandleDisconnect(ex);
             }
@@ -165,31 +172,30 @@ namespace TcpSocketLib
         }
 
         private void CheckFlood() {
-            _receiveRate++;
+            if (FloodDetector != null) {
+                _receiveRate++;
 
-            _now = _stopWatch.ElapsedMilliseconds;
-            _time = (_now - last);
+                _now = _stopWatch.ElapsedMilliseconds;
+                _time = (_now - _last);
 
-            if (_time >= FloodDetector?.Delta) {
-                last = _now;
+                if (_time >= FloodDetector?.Delta) {
+                    _last = _now;
 
-                if (_receiveRate > FloodDetector?.Receives)
-                    FloodDetected?.Invoke(this);
+                    if (_receiveRate > FloodDetector?.Receives)
+                        FloodDetected?.Invoke(this);
 
-                _receiveRate = 0;
+                    _receiveRate = 0;
+                }
             }
         }
 
         void HandleDisconnect(Exception ex) {
-//#if DEBUG
-            //MessageBox.Show(ex.Message + "\n\n" + "[" + $"{ex.StackTrace}" +  "]");
-//#endif
+            Connected = false;
             ClientDisconnected?.Invoke(this);
-            this._socket.Close();
         }
 
         private void BeginReadPayload() {
-            this._socket.BeginReceive(_buffer, _totalRead, _buffer.Length - _totalRead, SocketFlags.None, ReadPayloadCallBack, null);
+            _socket.BeginReceive(_buffer, _totalRead, _buffer.Length - _totalRead, SocketFlags.None, ReadPayloadCallBack, null);
         }
 
         private void ReadPayloadCallBack(IAsyncResult iar) {
@@ -214,7 +220,7 @@ namespace TcpSocketLib
                     AllocateBuffer(SIZE_PAYLOAD_LENGTH);
                     BeginReadSize();
                 }
-            } 
+            } catch (ObjectDisposedException) { return; }
             catch (Exception ex) {
                 HandleDisconnect(ex);
             }
@@ -224,9 +230,9 @@ namespace TcpSocketLib
         {
             lock (_syncLock)
             {
-                this._socket.Send(BitConverter.GetBytes(data.Length));
-                this._socket.Send(data);
-                this.SendProgressChanged?.Invoke(this, data.Length);
+                _socket.Send(BitConverter.GetBytes(data.Length));
+                _socket.Send(data);
+                SendProgressChanged?.Invoke(this, data.Length);
             }
         }
 
@@ -234,12 +240,23 @@ namespace TcpSocketLib
             SendData(bytes);
         }
 
+        public void Close() {
+            _socket.Close();
+        }
+
         public void Dispose() {
-            Disconnect();
+            Close();
             _buffer = null;
             RemoteEndPoint = null;
             FloodDetector = null;
+            UserState = null;
 
+            PacketReceived = null;
+            FloodDetected = null;
+            ClientConnected = null;
+            ClientDisconnected = null;
+            SendProgressChanged = null;
+            ReceiveProgressChanged = null;
         }
     }
 }
