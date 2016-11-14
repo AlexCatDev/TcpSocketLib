@@ -7,18 +7,23 @@ namespace TcpSocketLib
 {
     public class TcpSocketListener : IDisposable
     {
+        //Listener event delegates
+        public delegate void ListeningStateChangedEventHandler(TcpSocketListener listener, bool Listening);
 
+        //Listener events
+        public event ListeningStateChangedEventHandler ListeningStateChanged;
+
+        //Client event delegates
         public delegate void PacketReceivedEventHandler(TcpSocket sender, PacketReceivedArgs PacketReceivedArgs);
         public delegate void FloodDetectedEventHandler(TcpSocket sender);
-        public delegate void ClientConnectedEventHandler(TcpSocket sender);
-        public delegate void ClientDisconnectedEventHandler(TcpSocket sender);
+        public delegate void ClientStateChangedEventHandler(TcpSocket sender, Exception Message, bool Connected);
         public delegate void ReceiveProgressChangedEventHandler(TcpSocket sender, int Received, int BytesToReceive);
         public delegate void SendProgressChangedEventHandler(TcpSocket sender, int Send);
 
+        //Client events
         public event ReceiveProgressChangedEventHandler ReceiveProgressChanged;
         public event PacketReceivedEventHandler PacketReceived;
-        public event ClientConnectedEventHandler ClientConnected;
-        public event ClientDisconnectedEventHandler ClientDisconnected;
+        public event ClientStateChangedEventHandler ClientStateChanged;
         public event FloodDetectedEventHandler FloodDetected;
         public event SendProgressChangedEventHandler SendProgressChanged;
 
@@ -62,6 +67,7 @@ namespace TcpSocketLib
                 _listener.Bind(new IPEndPoint(0, Port));
                 _listener.Listen(MaxConnectionQueue);
                 Running = true;
+                ListeningStateChanged?.Invoke(this, Running);
                 _listener.BeginAccept(AcceptCallBack, null);
             }
         }
@@ -76,6 +82,7 @@ namespace TcpSocketLib
                 _connectedClients.Clear();
                 MaxConnectionQueue = 0;
                 Running = false;
+                ListeningStateChanged?.Invoke(this, Running);
             } else {
                 throw new InvalidOperationException("Listener isn't running.");
             }
@@ -86,8 +93,7 @@ namespace TcpSocketLib
                 Socket accepted = _listener.EndAccept(iar);
                 TcpSocket tcpSocket = new TcpSocket(accepted, MaxPacketSize);
 
-                tcpSocket.ClientConnected += TcpSocket_ClientConnected;
-                tcpSocket.ClientDisconnected += TcpSocket_ClientDisconnected;
+                tcpSocket.ClientStateChanged += TcpSocket_ClientStateChanged;
                 tcpSocket.PacketReceived += TcpSocket_PacketReceived;
                 tcpSocket.ReceiveProgressChanged += TcpSocket_ReceiveProgressChanged;
                 tcpSocket.SendProgressChanged += TcpSocket_SendProgressChanged;
@@ -100,35 +106,64 @@ namespace TcpSocketLib
             }
         }
 
+        public void BroadcastPacket(byte[] Packet, TcpSocket Exception = null) {
+            lock (_syncLock) {
+                foreach (var client in _connectedClients) {
+                    if (client != Exception) {
+                        try { client.Send(Packet); } catch { }
+                    }
+                }
+            }
+        }
+
+        private void TcpSocket_ClientStateChanged(TcpSocket sender, Exception Message, bool Connected) {
+            lock (_syncLock) {
+                if (Connected) {
+                    _connectedClients.Add(sender);
+                }
+                else {
+                    _connectedClients.Remove(sender);
+                }
+            }
+
+            ClientStateChanged?.BeginInvoke(sender, Message, Connected, ClientStateChangedEventCallBack, null);
+        }
+
+        private void ReceiveProgressChangedEventCallBack(IAsyncResult ar) {
+            ReceiveProgressChanged?.EndInvoke(ar);
+        }
+
+        private void ClientStateChangedEventCallBack(IAsyncResult ar) {
+            ClientStateChanged?.EndInvoke(ar);
+        }
+
+        private void FloodDetectedEventCallBack(IAsyncResult ar) {
+            FloodDetected?.EndInvoke(ar);
+        }
+
+        private void SendProgressChangedEventCallBack(IAsyncResult ar) {
+            SendProgressChanged?.EndInvoke(ar);
+        }
+
+        private void PacketReceivedEventCallBack(IAsyncResult ar) {
+            PacketReceived?.EndInvoke(ar);
+        }
+
         private void TcpSocket_SendProgressChanged(TcpSocket sender, int Send)
         {
-            SendProgressChanged?.Invoke(sender, Send);
+            SendProgressChanged?.BeginInvoke(sender, Send, SendProgressChangedEventCallBack, null);
         }
 
         private void TcpSocket_FloodDetected(TcpSocket sender) {
-            FloodDetected?.Invoke(sender);
+            FloodDetected?.BeginInvoke(sender, FloodDetectedEventCallBack, null);
         }
 
         private void TcpSocket_ReceiveProgressChanged(TcpSocket sender, int Received, int BytesToReceive) {
-            ReceiveProgressChanged?.Invoke(sender, Received, BytesToReceive);
+            ReceiveProgressChanged?.BeginInvoke(sender, Received, BytesToReceive, ReceiveProgressChangedEventCallBack, null);
         }
 
         private void TcpSocket_PacketReceived(TcpSocket sender, PacketReceivedArgs PacketReceivedArgs) {
-            PacketReceived?.Invoke(sender, PacketReceivedArgs);
-        }
-
-        private void TcpSocket_ClientDisconnected(TcpSocket sender) {
-            lock (_syncLock) {
-                _connectedClients.Remove(sender);
-            }
-            ClientDisconnected?.Invoke(sender);
-        }
-
-        private void TcpSocket_ClientConnected(TcpSocket sender) {
-            lock (_syncLock) {
-                _connectedClients.Add(sender);
-            }
-            ClientConnected?.Invoke(sender);
+            PacketReceived?.BeginInvoke(sender, PacketReceivedArgs, PacketReceivedEventCallBack, null);
         }
 
         public void Dispose() {

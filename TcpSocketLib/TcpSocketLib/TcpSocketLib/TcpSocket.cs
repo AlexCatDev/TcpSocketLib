@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 
 namespace TcpSocketLib
 {
@@ -11,15 +12,13 @@ namespace TcpSocketLib
 
         public delegate void PacketReceivedEventHandler(TcpSocket sender, PacketReceivedArgs PacketReceivedArgs);
         public delegate void FloodDetectedEventHandler(TcpSocket sender);
-        public delegate void ClientConnectedEventHandler(TcpSocket sender);
-        public delegate void ClientDisconnectedEventHandler(TcpSocket sender);
+        public delegate void ClientStateChangedEventHandler(TcpSocket sender, Exception Message, bool Connected);
         public delegate void ReceiveProgressChangedEventHandler(TcpSocket sender, int Received, int BytesToReceive);
         public delegate void SendProgressChangedEventHandler(TcpSocket sender, int Send);
 
         public event ReceiveProgressChangedEventHandler ReceiveProgressChanged;
         public event PacketReceivedEventHandler PacketReceived;
-        public event ClientConnectedEventHandler ClientConnected;
-        public event ClientDisconnectedEventHandler ClientDisconnected;
+        public event ClientStateChangedEventHandler ClientStateChanged;
         public event FloodDetectedEventHandler FloodDetected;
         public event SendProgressChangedEventHandler SendProgressChanged;
 
@@ -27,8 +26,7 @@ namespace TcpSocketLib
         public bool Running { get; private set; }
         public int MaxPacketSize { get; set; }
 
-        public bool Connected { get; set; }
-
+        //Allow to receive null length packets (Can be used as keep alive packet)
         public bool AllowZeroLengthPackets { get; set; }
 
         public EndPoint RemoteEndPoint { get; private set; }
@@ -60,7 +58,7 @@ namespace TcpSocketLib
             }
         }
 
-        public TcpSocket(int MaxPacketSize) {
+        public TcpSocket(int MaxPacketSize = int.MaxValue) {
             this.MaxPacketSize = MaxPacketSize;
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _socket.NoDelay = true;
@@ -71,16 +69,14 @@ namespace TcpSocketLib
         private void Setup() {
             AllowZeroLengthPackets = false;
             Running = false;
-            Connected = false;
 
             _syncLock = new object();
         }
 
         public void Start() {
             if (Running == false) {
-                Connected = true;
                 Running = true;
-                ClientConnected?.Invoke(this);
+                ClientStateChanged?.BeginInvoke(this, null, Running, ClientStateChangedEventCallBack, null);
                 _stopWatch = Stopwatch.StartNew();
                 _now = _stopWatch.ElapsedMilliseconds;
                 _last = _now;
@@ -130,8 +126,6 @@ namespace TcpSocketLib
 
                     _totalRead += read;
 
-                        CheckFlood();
-
                     if (_totalRead < _buffer.Length) {
                         BeginReadSize();
                     }
@@ -141,7 +135,7 @@ namespace TcpSocketLib
 
                         //Check if the data size is bigger than whats allowed
                         if (dataSize > MaxPacketSize)
-                            HandleDisconnect(new Exception($"Packet was bigger than allowed {dataSize} > {MaxPacketSize}"), false);
+                            throw new Exception($"Packet was bigger than allowed {dataSize} > {MaxPacketSize}");
 
                         //Check if dataSize is bigger than 0
                         if (dataSize > 0) {
@@ -154,12 +148,13 @@ namespace TcpSocketLib
                         }
                         else {
                             if (AllowZeroLengthPackets) {
+                                CheckFlood();
                                 _totalRead = 0;
                                 BeginReadSize();
-                                PacketReceived?.Invoke(this, new PacketReceivedArgs(new byte[0]));
+                                PacketReceived?.BeginInvoke(this, new PacketReceivedArgs(new byte[0]), PacketReceivedEventCallBack, null);
                             }
                             else
-                                HandleDisconnect(new Exception("Zero length packets wasn't set to be allowed"), false);
+                                throw new Exception("Zero length packets wasn't set to be allowed");
                         }
                     }
                 }
@@ -182,7 +177,7 @@ namespace TcpSocketLib
                     _last = _now;
 
                     if (_receiveRate > FloodDetector?.Receives)
-                        FloodDetected?.Invoke(this);
+                        FloodDetected?.BeginInvoke(this, FloodDetectedEventCallBack, null);
 
                     _receiveRate = 0;
                 }
@@ -190,9 +185,9 @@ namespace TcpSocketLib
         }
 
         private void HandleDisconnect(Exception ex, bool reuseSocket) {
-            Connected = false;
+            Running = false;
             _socket.Disconnect(reuseSocket);
-            ClientDisconnected?.Invoke(this);
+            ClientStateChanged?.BeginInvoke(this, ex, Running, ClientStateChangedEventCallBack, null);
         }
 
         private void BeginReadPayload() {
@@ -201,7 +196,7 @@ namespace TcpSocketLib
 
         private void ReadPayloadCallBack(IAsyncResult iar) {
             try {
-                int read = this._socket.EndReceive(iar);
+                int read = _socket.EndReceive(iar);
 
                 if (read <= 0)
                     throw new SocketException((int)SocketError.ConnectionReset);
@@ -216,7 +211,7 @@ namespace TcpSocketLib
                 if (_totalRead < _buffer.Length)
                     BeginReadPayload();
                 else {
-                    PacketReceived?.Invoke(this, new PacketReceivedArgs(_buffer));
+                    PacketReceived?.BeginInvoke(this, new PacketReceivedArgs(_buffer), PacketReceivedEventCallBack, null);
                     _totalRead = 0;
                     AllocateBuffer(SIZE_PAYLOAD_LENGTH);
                     BeginReadSize();
@@ -227,13 +222,41 @@ namespace TcpSocketLib
             }
         }
 
+        public void UnsubscribeEvents() {
+            PacketReceived = null;
+            FloodDetected = null;
+            ClientStateChanged = null;
+            SendProgressChanged = null;
+            ReceiveProgressChanged = null;
+        }
+
+        private void ReceiveProgressChangedEventCallBack(IAsyncResult ar) {
+            ReceiveProgressChanged?.EndInvoke(ar);
+        }
+
+        private void ClientStateChangedEventCallBack(IAsyncResult ar) {
+            ClientStateChanged?.EndInvoke(ar);
+        }
+
+        private void FloodDetectedEventCallBack(IAsyncResult ar) {
+            FloodDetected?.EndInvoke(ar);
+        }
+
+        private void SendProgressChangedEventCallBack(IAsyncResult ar) {
+            SendProgressChanged?.EndInvoke(ar);
+        }
+
+        private void PacketReceivedEventCallBack(IAsyncResult ar) {
+            PacketReceived?.EndInvoke(ar);
+        }
+
         private void SendData(byte[] data)
         {
             lock (_syncLock)
             {
                 _socket.Send(BitConverter.GetBytes(data.Length));
                 _socket.Send(data);
-                SendProgressChanged?.Invoke(this, data.Length);
+                SendProgressChanged?.BeginInvoke(this, data.Length + SIZE_PAYLOAD_LENGTH, SendProgressChangedEventCallBack, null);
             }
         }
 
@@ -252,12 +275,7 @@ namespace TcpSocketLib
             FloodDetector = null;
             UserState = null;
 
-            PacketReceived = null;
-            FloodDetected = null;
-            ClientConnected = null;
-            ClientDisconnected = null;
-            SendProgressChanged = null;
-            ReceiveProgressChanged = null;
+            UnsubscribeEvents();
         }
     }
 }
