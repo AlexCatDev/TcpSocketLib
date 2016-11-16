@@ -110,7 +110,7 @@ namespace TcpSocketLib
             lock (_syncLock) {
                 foreach (var client in _connectedClients) {
                     if (client != Exception) {
-                        try { client.Send(Packet); } catch { }
+                        try { client.SendPacket(Packet); } catch { }
                     }
                 }
             }
