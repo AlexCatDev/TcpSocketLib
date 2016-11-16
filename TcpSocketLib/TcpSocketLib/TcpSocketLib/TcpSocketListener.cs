@@ -124,46 +124,25 @@ namespace TcpSocketLib
                 else {
                     _connectedClients.Remove(sender);
                 }
+                ClientStateChanged?.Invoke(sender, Message, Connected);
             }
-
-            ClientStateChanged?.BeginInvoke(sender, Message, Connected, ClientStateChangedEventCallBack, null);
-        }
-
-        private void ReceiveProgressChangedEventCallBack(IAsyncResult ar) {
-            ReceiveProgressChanged?.EndInvoke(ar);
-        }
-
-        private void ClientStateChangedEventCallBack(IAsyncResult ar) {
-            ClientStateChanged?.EndInvoke(ar);
-        }
-
-        private void FloodDetectedEventCallBack(IAsyncResult ar) {
-            FloodDetected?.EndInvoke(ar);
-        }
-
-        private void SendProgressChangedEventCallBack(IAsyncResult ar) {
-            SendProgressChanged?.EndInvoke(ar);
-        }
-
-        private void PacketReceivedEventCallBack(IAsyncResult ar) {
-            PacketReceived?.EndInvoke(ar);
         }
 
         private void TcpSocket_SendProgressChanged(TcpSocket sender, int Send)
         {
-            SendProgressChanged?.BeginInvoke(sender, Send, SendProgressChangedEventCallBack, null);
+            SendProgressChanged?.Invoke(sender, Send);
         }
 
         private void TcpSocket_FloodDetected(TcpSocket sender) {
-            FloodDetected?.BeginInvoke(sender, FloodDetectedEventCallBack, null);
+            FloodDetected?.Invoke(sender);
         }
 
         private void TcpSocket_ReceiveProgressChanged(TcpSocket sender, int Received, int BytesToReceive) {
-            ReceiveProgressChanged?.BeginInvoke(sender, Received, BytesToReceive, ReceiveProgressChangedEventCallBack, null);
+            ReceiveProgressChanged?.Invoke(sender, Received, BytesToReceive);
         }
 
         private void TcpSocket_PacketReceived(TcpSocket sender, PacketReceivedArgs PacketReceivedArgs) {
-            PacketReceived?.BeginInvoke(sender, PacketReceivedArgs, PacketReceivedEventCallBack, null);
+            PacketReceived?.Invoke(sender, PacketReceivedArgs);
         }
 
         public void Dispose() {

@@ -6,12 +6,12 @@ namespace TcpSocketLib.Extra
 {
     public class PluginResolver<PluginInterface>
     {
-        public class PluginResolvedEventArgs<T>
+        public class PluginResolvedEventArgs
         {
-            public T Plugin { get; protected set; }
+            public PluginInterface Plugin { get; protected set; }
             public Assembly Assembly { get; protected set; }
 
-            public PluginResolvedEventArgs(T Plugin, Assembly Assembly) {
+            public PluginResolvedEventArgs(PluginInterface Plugin, Assembly Assembly) {
                 this.Plugin = Plugin;
                 this.Assembly = Assembly;
             }
@@ -35,7 +35,7 @@ namespace TcpSocketLib.Extra
         /// <summary>
         /// This event fires when a plugin successfully resolved
         /// </summary>
-        public event EventHandler<PluginResolvedEventArgs<PluginInterface>> PluginResolved;
+        public event EventHandler<PluginResolvedEventArgs> PluginResolved;
 
         /// <summary>
         /// Load plugins from a directory and fires events
@@ -56,7 +56,7 @@ namespace TcpSocketLib.Extra
                                 }
                                 else {
                                     if (type.GetInterface(typeof(PluginInterface).FullName) != null) {
-                                        PluginResolved?.Invoke(this, new PluginResolvedEventArgs<PluginInterface>((PluginInterface)Activator.CreateInstance(type, PluginConstructor), assembly));
+                                        PluginResolved?.Invoke(this, new PluginResolvedEventArgs((PluginInterface)Activator.CreateInstance(type, PluginConstructor), assembly));
                                     }
                                 }
                             }
@@ -87,7 +87,7 @@ namespace TcpSocketLib.Extra
                             }
                             else {
                                 if (type.GetInterface(typeof(PluginInterface).FullName) != null) {
-                                    PluginResolved?.Invoke(this, new PluginResolvedEventArgs<PluginInterface>((PluginInterface)Activator.CreateInstance(type, PluginConstructor), assembly));
+                                    PluginResolved?.Invoke(this, new PluginResolvedEventArgs((PluginInterface)Activator.CreateInstance(type, PluginConstructor), assembly));
                                 }
                             }
                         }
