@@ -147,6 +147,8 @@ namespace TcpSocketLib
 
         public void Dispose() {
             Stop();
+
+            ListeningStateChanged = null;
         }
     }
 }

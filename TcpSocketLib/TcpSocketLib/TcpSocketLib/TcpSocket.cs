@@ -120,7 +120,7 @@ namespace TcpSocketLib
                 //Attempt to receive the buffer size
                 socket.BeginReceive(buffer, 0, SIZE_BUFFER_LENGTH, 0,
                     ReadSizeCallBack, null);
-            }
+            }catch (NullReferenceException) { return; }
             catch (ObjectDisposedException) { return; }
             catch (Exception ex) {
                 HandleDisconnect(ex, false);
@@ -185,7 +185,8 @@ namespace TcpSocketLib
                 socket.BeginReceive(buffer, 0, initialSize, 0,
                     ReceivePayloadCallBack, null);
             }
-            catch (ObjectDisposedException) { }
+            catch (NullReferenceException) { return; }
+            catch (ObjectDisposedException) { return; }
             catch (Exception ex) {
                 HandleDisconnect(ex, false);
             }
@@ -236,7 +237,8 @@ namespace TcpSocketLib
                     PacketReceived?.Invoke(this, new PacketReceivedArgs(payload));
                 }
             }
-            catch (ObjectDisposedException) { }
+            catch (NullReferenceException) { return; }
+            catch (ObjectDisposedException) { return; }
             catch (Exception ex) {
                 HandleDisconnect(ex, false);
             }
@@ -301,6 +303,8 @@ namespace TcpSocketLib
             RemoteEndPoint = null;
             FloodDetector = null;
             UserState = null;
+            if(payloadStream!=null)
+            payloadStream.Dispose();
 
             UnsubscribeEvents();
         }
